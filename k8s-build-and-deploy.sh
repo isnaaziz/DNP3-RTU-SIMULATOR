@@ -21,8 +21,8 @@ echo "Apply $MANIFEST..."
 sed "s|image: .*/$APP_NAME:.*|image: $IMAGE|" "$MANIFEST" | kubectl apply -f -
 
 echo "Restart pod agar image terbaru dipakai..."
-kubectl -n "$NAMESPACE" rollout restart statefulset/"$APP_NAME"
-kubectl -n "$NAMESPACE" rollout status statefulset/"$APP_NAME" --timeout=180s
+kubectl -n "$NAMESPACE" rollout restart deployment/"$APP_NAME"
+kubectl -n "$NAMESPACE" rollout status deployment/"$APP_NAME" --timeout=180s
 
 NODE_IP="$(kubectl get nodes -o jsonpath='{.items[0].status.addresses[?(@.type=="InternalIP")].address}')"
 echo

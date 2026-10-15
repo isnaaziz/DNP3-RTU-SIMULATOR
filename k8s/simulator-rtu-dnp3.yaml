@@ -1,5 +1,5 @@
 apiVersion: apps/v1
-kind: StatefulSet
+kind: Deployment
 metadata:
   name: simulator-rtu-dnp3
   namespace: simulator-dnp3
@@ -7,7 +7,8 @@ metadata:
     app: simulator-rtu-dnp3
 spec:
   replicas: 1
-  serviceName: simulator-rtu-dnp3
+  strategy:
+    type: Recreate
   selector:
     matchLabels:
       app: simulator-rtu-dnp3
@@ -21,7 +22,6 @@ spec:
       securityContext:
         runAsNonRoot: true
         runAsUser: 10001
-        fsGroup: 10001
       containers:
         - name: simulator-rtu-dnp3
           image: 10.14.152.233:8080/scada/simulator-rtu-dnp3:latest
@@ -35,9 +35,6 @@ spec:
           env:
             - name: TZ
               value: Asia/Jakarta
-          volumeMounts:
-            - name: data
-              mountPath: /data
           readinessProbe:
             httpGet:
               path: /api/state
@@ -58,14 +55,6 @@ spec:
             limits:
               cpu: 500m
               memory: 256Mi
-  volumeClaimTemplates:
-    - metadata:
-        name: data
-      spec:
-        accessModes: ["ReadWriteOnce"]
-        resources:
-          requests:
-            storage: 100Mi
 ---
 apiVersion: v1
 kind: Service
