@@ -35,19 +35,6 @@ spec:
           env:
             - name: TZ
               value: Asia/Jakarta
-          readinessProbe:
-            httpGet:
-              path: /api/state
-              port: http
-            initialDelaySeconds: 3
-            periodSeconds: 10
-          livenessProbe:
-            httpGet:
-              path: /api/state
-              port: http
-            initialDelaySeconds: 10
-            periodSeconds: 20
-            failureThreshold: 3
           resources:
             requests:
               cpu: 50m
