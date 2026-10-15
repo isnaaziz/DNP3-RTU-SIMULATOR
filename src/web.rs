@@ -15,6 +15,38 @@ use crate::outstation::{add_point, remove_point, restart, write_point};
 use crate::state::{App, Shared};
 
 const INDEX: &str = include_str!("../static/index.html");
+
+macro_rules! assets {
+    ($($path:literal),* $(,)?) => {
+        &[$(($path, include_str!(concat!("../static/", $path)))),*]
+    };
+}
+
+const ASSETS: &[(&str, &str)] = assets![
+    "css/base.css",
+    "css/layout.css",
+    "css/breakers.css",
+    "css/points.css",
+    "css/overlays.css",
+    "js/main.js",
+    "js/api.js",
+    "js/store.js",
+    "js/util.js",
+    "js/icons.js",
+    "js/actions.js",
+    "js/interactions.js",
+    "js/toolbar.js",
+    "js/config-io.js",
+    "js/render/index.js",
+    "js/render/shared.js",
+    "js/render/header.js",
+    "js/render/breakers.js",
+    "js/render/telesignals.js",
+    "js/render/telemetries.js",
+    "js/render/log.js",
+    "js/dialogs/point-dialog.js",
+    "js/dialogs/settings-dialog.js",
+];
 const TEMPLATE: &str = include_str!("../static/import-template.json");
 
 struct ApiError(String);
@@ -30,6 +62,7 @@ type ApiResult = Result<Json<Value>, ApiError>;
 pub fn router(shared: Shared) -> Router {
     Router::new()
         .route("/", get(|| async { Html(INDEX) }))
+        .route("/static/*path", get(asset))
         .route("/api/state", get(state))
         .route("/api/events", get(events))
         .route("/api/settings", post(settings))
@@ -42,6 +75,25 @@ pub fn router(shared: Shared) -> Router {
         .route("/api/config/import", post(import_config))
         .route("/api/config/template", get(import_template))
         .with_state(shared)
+}
+
+async fn asset(Path(path): Path<String>) -> Response {
+    let Some((_, body)) = ASSETS.iter().find(|(name, _)| *name == path) else {
+        return StatusCode::NOT_FOUND.into_response();
+    };
+    let content_type = if path.ends_with(".css") {
+        "text/css; charset=utf-8"
+    } else {
+        "text/javascript; charset=utf-8"
+    };
+    (
+        [
+            (header::CONTENT_TYPE, content_type),
+            (header::CACHE_CONTROL, "no-cache"),
+        ],
+        *body,
+    )
+        .into_response()
 }
 
 fn snapshot(app: &App) -> Value {

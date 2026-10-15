@@ -95,3 +95,32 @@ Semua point memakai variasi berikut:
 2. Master mengirim CROB TRIP (atau LATCH_OFF) ke BO 0.
 3. Simulator menjawab `Success`, DBI 0 langsung menjadi INTERMEDIATE (0), lalu setelah 2 detik menjadi OFF (1). Kedua perubahan dikirim sebagai event bertimestamp.
 4. Centang **Mode LOCAL** di BO 0 untuk menguji penolakan kontrol oleh RTU.
+
+## Struktur UI
+
+File UI ada di `static/` dan ikut tertanam di binary saat build (disajikan di `/static/...`):
+
+```
+static/
+├── index.html              markup
+├── import-template.json
+├── css/
+│   ├── base.css            warna, font, elemen dasar, toast
+│   ├── layout.css          header dan tiga kolom
+│   ├── breakers.css        kartu circuit breaker, lampu, L/R
+│   ├── points.css          baris telesignal dan telemetry
+│   └── overlays.css        dialog, form, panel log
+└── js/
+    ├── main.js             titik masuk
+    ├── store.js            state dan helper point
+    ├── api.js              REST dan koneksi SSE
+    ├── actions.js          ubah nilai, simpan, hapus, L/R
+    ├── interactions.js     klik, edit langsung, keyboard
+    ├── toolbar.js          tombol header dan panel log
+    ├── config-io.js        export, template, import
+    ├── util.js, icons.js
+    ├── render/             header, breakers, telesignals, telemetries, log
+    └── dialogs/            dialog point dan pengaturan
+```
+
+File CSS/JS baru harus didaftarkan di `ASSETS` pada `src/web.rs`.

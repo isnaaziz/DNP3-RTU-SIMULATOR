@@ -1,0 +1,44 @@
+.list { padding: 0 0 8px; }
+.ts-list { margin: 16px; border: 1px solid var(--line); border-radius: 6px; overflow: hidden; }
+.row {
+  display: grid; grid-template-columns: minmax(0, 1.3fr) minmax(0, 1fr) auto; align-items: center; gap: 12px;
+  min-height: 84px; padding: 14px 20px; border-bottom: 1px solid var(--line);
+}
+.ts-list .row:last-child { border-bottom: 0; }
+.row .name button { border: 0; background: none; padding: 0; font-weight: 700; font-size: 15.5px; color: var(--navy); text-align: left; }
+.row .name button:hover { text-decoration: underline; }
+.row .name small { display: block; margin-top: 6px; color: var(--muted); font-size: 13px; }
+.big { font-size: 24px; font-weight: 700; line-height: 1.1; color: var(--navy); }
+.big.on { color: var(--red); }
+.big.off { color: var(--slate); }
+.big.open { color: var(--green); }
+.big.close { color: var(--red); }
+.big.inter, .big.bad { color: var(--amber); }
+.val-btn { border: 0; background: none; padding: 0; font-size: 24px; font-weight: 700; line-height: 1.1; color: var(--navy); text-align: left; }
+.val-btn small { font-size: 15px; font-weight: 600; color: #4b5d72; margin-left: 4px; }
+.val-btn:hover { text-decoration: underline dotted; }
+.val-input { width: 120px; font-size: 18px; padding: 3px 6px; border: 1px solid var(--blue); border-radius: 5px; }
+.idx { margin-top: 6px; font-size: 13px; color: var(--muted); }
+.quality { margin-top: 4px; font-size: 11px; font-weight: 700; color: var(--red); letter-spacing: .03em; }
+.btns { display: flex; gap: 10px; align-items: center; }
+.pm-stack { display: grid; gap: 8px; }
+.pm { width: 40px; height: 36px; border: 1px solid #c3ccd6; border-radius: 6px; background: #fff; font-size: 20px; line-height: 1; color: var(--navy); }
+.pm:hover { background: #f3f6f9; }
+.auto { width: 40px; height: 36px; border: 1.5px solid #6fbf83; border-radius: 6px; background: #f2faf4; color: var(--green); font-weight: 700; }
+.auto.active { background: var(--green); border-color: var(--green); color: #fff; }
+.combo { display: grid; width: 62px; border: 1.5px solid #6fbf83; border-radius: 6px; overflow: hidden; }
+.combo .auto { width: auto; border: 0; border-radius: 0; height: 30px; }
+.combo .state { border: 0; height: 32px; font-weight: 700; font-size: 13px; color: #fff; background: var(--green); }
+.combo .state.on { background: var(--red); }
+.dbi-btns { display: grid; grid-template-columns: repeat(2, auto); gap: 6px; }
+.sq { min-width: 54px; height: 30px; padding: 0 8px; border: 1px solid #c3ccd6; border-radius: 5px; background: #fff; font-size: 12.5px; font-weight: 700; color: #3d4c5e; }
+.sq.open-on { background: var(--green); border-color: var(--green); color: #fff; }
+.sq.close-on { background: var(--red); border-color: var(--red); color: #fff; }
+.sq.amber-on { background: var(--amber); border-color: var(--amber); color: #fff; }
+
+.row-actions { display: flex; gap: 6px; margin-top: 8px; }
+.mini-icon { width: 28px; height: 26px; display: grid; place-items: center; border: 1px solid var(--line-strong); border-radius: 5px; background: #fff; color: var(--navy); padding: 0; }
+.mini-icon:hover { background: #f1f4f8; }
+.mini-icon svg { width: 14px; height: 14px; }
+.mini-icon.danger { color: var(--red); }
+.mini-icon.danger:hover { background: #fdeceb; border-color: var(--red-line); }
