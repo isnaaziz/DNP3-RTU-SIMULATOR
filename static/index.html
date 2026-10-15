@@ -1,0 +1,942 @@
+<!doctype html>
+<html lang="id">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>DNP3 RTU Simulator</title>
+<style>
+:root {
+  --bg: #eef1f5;
+  --card: #ffffff;
+  --card-head: #f7f9fb;
+  --line: #dfe4ea;
+  --line-strong: #cfd6de;
+  --text: #1c2b3d;
+  --muted: #7a8796;
+  --navy: #1f3150;
+  --navy-2: #2a3f63;
+  --green: #2f8f46;
+  --green-soft: #e3f3e7;
+  --green-line: #b7dcc0;
+  --red: #e0453f;
+  --red-soft: #f9d4d2;
+  --red-line: #f0aeaa;
+  --amber: #c27a00;
+  --blue: #3b6fe0;
+  --slate: #8492a2;
+}
+* { box-sizing: border-box; }
+html, body { height: 100%; }
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--text);
+  font-family: "Segoe UI", Arial, Helvetica, sans-serif;
+  font-size: 14px;
+  line-height: 1.4;
+  font-variant-numeric: tabular-nums;
+}
+button { font: inherit; color: inherit; cursor: pointer; }
+input, select { font: inherit; color: var(--text); }
+
+.top {
+  display: flex; align-items: center; gap: 18px;
+  padding: 12px 20px; background: var(--navy); color: #fff;
+  position: sticky; top: 0; z-index: 10;
+}
+.brand { display: flex; align-items: center; gap: 14px; min-width: 0; }
+.logo {
+  width: 46px; height: 46px; border-radius: 8px; flex: none;
+  background: linear-gradient(160deg, #4d7fe0, #2c56b8);
+  display: grid; place-items: center; font: 700 11px/1.05 Arial, sans-serif; color: #fff; text-align: center;
+}
+.brand h1 { font-size: 22px; margin: 0; font-weight: 700; white-space: nowrap; }
+.brand .sub { font-size: 13px; color: #c3cee0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.brand .sub span + span::before { content: "|"; margin: 0 10px; color: #6f83a6; }
+.conn { display: flex; align-items: center; gap: 8px; font-size: 14px; font-weight: 600; margin-left: auto; white-space: nowrap; }
+.conn i { width: 10px; height: 10px; border-radius: 50%; background: #8b9bb4; display: inline-block; }
+.conn.on i { background: #3fbf5f; box-shadow: 0 0 0 3px rgba(63,191,95,.25); }
+.conn.wait i { background: #3fbf5f; }
+.conn.off i { background: var(--red); }
+.tools { display: flex; gap: 8px; }
+.icon-btn {
+  width: 40px; height: 40px; display: inline-grid; place-items: center;
+  border: 1px solid #5a6e92; border-radius: 6px; background: transparent; color: #fff;
+}
+.icon-btn:hover { background: var(--navy-2); border-color: #8197bd; }
+.icon-btn svg { width: 18px; height: 18px; }
+
+.cols {
+  display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 16px;
+  padding: 18px 20px 24px; min-height: calc(100vh - 70px); align-items: stretch;
+}
+.col { background: var(--card); border: 1px solid var(--line); border-radius: 8px; min-width: 0; display: flex; flex-direction: column; overflow: hidden; }
+.col-head { display: flex; align-items: center; gap: 12px; padding: 16px 20px; border-bottom: 1px solid var(--line); }
+.col-head svg { width: 26px; height: 26px; color: var(--navy); flex: none; }
+.col-head h2 { margin: 0; font-size: 19px; font-weight: 700; color: var(--navy); }
+.col-body { flex: 1; display: flex; flex-direction: column; }
+@media (max-width: 1150px) {
+  .cols { grid-template-columns: 1fr; }
+  .brand .sub { display: none; }
+}
+@media (max-width: 600px) {
+  .top { flex-wrap: wrap; padding: 10px 14px; gap: 10px; }
+  .brand h1 { font-size: 18px; }
+  .conn { margin-left: 0; }
+  .tools { width: 100%; justify-content: flex-end; }
+  .cols { padding: 12px; gap: 12px; }
+}
+
+.empty {
+  flex: 1; margin: 16px; min-height: 220px; border: 1px solid var(--line); border-radius: 6px; background: #fafbfc;
+  display: grid; place-content: center; justify-items: center; gap: 10px; color: var(--muted); text-align: center; padding: 20px;
+}
+.empty svg { width: 46px; height: 46px; color: #a7b1bd; }
+
+.bays { padding: 16px; display: grid; gap: 16px; container-type: inline-size; }
+.bay { border: 1px solid var(--line); border-radius: 6px; overflow: hidden; }
+.bay-title { display: flex; align-items: center; gap: 12px; margin: 0; padding: 12px 16px; background: var(--card-head); border-bottom: 1px solid var(--line); }
+.bay-icon { width: 28px; height: 28px; border-radius: 5px; display: grid; place-items: center; background: var(--green); color: #fff; flex: none; }
+.bay-icon.close { background: var(--red); }
+.bay-icon.inter, .bay-icon.bad { background: var(--amber); }
+.bay-icon.dead { background: var(--slate); }
+.bay-icon svg { width: 18px; height: 18px; }
+.bay-title button { border: 0; background: none; padding: 0; font-size: 17px; font-weight: 700; text-transform: uppercase; color: var(--navy); text-align: left; }
+.bay-title button:hover { text-decoration: underline; }
+.bay-body { display: grid; grid-template-columns: auto minmax(0, 1fr); gap: 22px; padding: 18px 16px; align-items: start; }
+.info { min-width: 0; overflow-wrap: anywhere; }
+.lamps { display: grid; grid-template-columns: repeat(2, 104px); gap: 6px 14px; justify-items: center; padding-right: 22px; border-right: 1px solid var(--line); }
+
+.lamp-btn { border: 0; background: none; padding: 0; display: grid; justify-items: center; gap: 8px; }
+.lamp { width: 92px; height: 92px; border-radius: 50%; display: grid; place-items: center; border: 2px solid transparent; transition: background .2s; }
+.lamp svg { width: 42px; height: 42px; }
+.lamp.green { background: var(--green-soft); border-color: var(--green-line); color: var(--green); }
+.lamp.red { background: var(--red-soft); border-color: var(--red-line); color: var(--red); }
+.lamp.green.lit { background: var(--green); border-color: #1f6d33; color: #fff; box-shadow: 0 0 0 4px rgba(47,143,70,.12); }
+.lamp.red.lit { background: var(--red); border-color: #b9302b; color: #fff; box-shadow: 0 0 0 4px rgba(224,69,63,.12); }
+.lamp.dead { background: #eceff3; border-color: var(--line-strong); color: var(--slate); }
+.lamp-btn:hover .lamp { filter: brightness(.97); }
+.lamp-btn:disabled { cursor: not-allowed; }
+.lamp-btn:disabled:hover .lamp { filter: none; }
+.lamp-btn:disabled .lamp-label { opacity: .55; }
+.lock-note { grid-column: 1 / -1; justify-self: start; display: inline-flex; align-items: center; gap: 6px; margin-top: 8px; font-size: 12.5px; color: var(--muted); }
+.lock-note svg { width: 14px; height: 14px; }
+.lamp-label { font-size: 17px; font-weight: 500; }
+.lamp-label.green { color: var(--green); }
+.lamp-label.red { color: var(--red); }
+.lamps.inter .lamp { animation: blink 1s steps(2, start) infinite; }
+@keyframes blink { to { opacity: .35; } }
+.small-row { grid-column: 1 / -1; display: flex; gap: 10px; margin-top: 10px; }
+.chip-btn { padding: 6px 14px; border: 1px solid var(--line); border-radius: 5px; background: #f3f5f8; color: #3d4c5e; font-size: 13.5px; font-weight: 600; }
+.chip-btn.inter { background: var(--green-soft); border-color: var(--green-line); color: var(--green); }
+.chip-btn.sel { background: var(--amber); border-color: var(--amber); color: #fff; }
+.state-text { grid-column: 1 / -1; justify-self: start; margin-top: 10px; font-weight: 700; font-size: 14px; letter-spacing: .03em; }
+.state-text.open { color: var(--green); }
+.state-text.close { color: var(--red); }
+.state-text.inter, .state-text.bad { color: var(--amber); }
+.state-text.dead { color: var(--slate); }
+
+.info { display: grid; gap: 7px; font-size: 14.5px; color: #34465b; }
+.info b { font-weight: 700; color: var(--text); margin-left: 4px; }
+.inline-val {
+  border: 0; border-bottom: 1px dashed #9aa7b5; background: none; padding: 0 2px; margin-left: 4px;
+  font-weight: 700; color: var(--text); cursor: text; line-height: 1.3;
+}
+.inline-val:hover { border-bottom-color: var(--blue); color: var(--blue); }
+.idx .inline-val { font-weight: 600; color: var(--muted); margin-left: 2px; }
+.inline-input { width: 92px; margin-left: 4px; padding: 1px 6px; border: 1px solid var(--blue); border-radius: 4px; font-weight: 700; }
+.bay-edit { margin-left: auto; width: 32px; height: 32px; display: grid; place-items: center; border: 1px solid var(--line-strong); border-radius: 6px; background: #fff; color: var(--navy); }
+.bay-edit:hover { background: #f1f4f8; }
+.bay-edit svg { width: 16px; height: 16px; }
+.seg { display: inline-flex; margin-left: 6px; border: 1px solid var(--line-strong); border-radius: 5px; overflow: hidden; vertical-align: middle; }
+.seg button { border: 0; background: #fff; padding: 2px 9px; font-size: 12.5px; font-weight: 600; color: #4b5d72; }
+.seg button + button { border-left: 1px solid var(--line-strong); }
+.seg button.sel { background: var(--navy); color: #fff; }
+.link-btn { border: 0; background: none; padding: 0; margin-left: 4px; color: var(--blue); font-weight: 600; }
+.link-btn:hover { text-decoration: underline; }
+.lr { display: flex; align-items: center; gap: 12px; margin-top: 10px; font-weight: 700; }
+.lr .tag { font-weight: 500; color: var(--muted); margin-left: 12px; }
+.switch { width: 54px; height: 28px; border-radius: 14px; border: 0; padding: 3px; background: #c4ccd6; display: inline-flex; align-items: center; }
+.switch::after { content: ""; width: 22px; height: 22px; border-radius: 50%; background: #fff; box-shadow: 0 1px 2px rgba(0,0,0,.2); transition: transform .15s; }
+.switch.remote { background: var(--blue); }
+.switch.remote::after { transform: translateX(26px); }
+
+.list { padding: 0 0 8px; }
+.ts-list { margin: 16px; border: 1px solid var(--line); border-radius: 6px; overflow: hidden; }
+.row {
+  display: grid; grid-template-columns: minmax(0, 1.3fr) minmax(0, 1fr) auto; align-items: center; gap: 12px;
+  min-height: 84px; padding: 14px 20px; border-bottom: 1px solid var(--line);
+}
+.ts-list .row:last-child { border-bottom: 0; }
+.row .name button { border: 0; background: none; padding: 0; font-weight: 700; font-size: 15.5px; color: var(--navy); text-align: left; }
+.row .name button:hover { text-decoration: underline; }
+.row .name small { display: block; margin-top: 6px; color: var(--muted); font-size: 13px; }
+.big { font-size: 24px; font-weight: 700; line-height: 1.1; color: var(--navy); }
+.big.on { color: var(--red); }
+.big.off { color: var(--slate); }
+.big.open { color: var(--green); }
+.big.close { color: var(--red); }
+.big.inter, .big.bad { color: var(--amber); }
+.val-btn { border: 0; background: none; padding: 0; font-size: 24px; font-weight: 700; line-height: 1.1; color: var(--navy); text-align: left; }
+.val-btn small { font-size: 15px; font-weight: 600; color: #4b5d72; margin-left: 4px; }
+.val-btn:hover { text-decoration: underline dotted; }
+.val-input { width: 120px; font-size: 18px; padding: 3px 6px; border: 1px solid var(--blue); border-radius: 5px; }
+.idx { margin-top: 6px; font-size: 13px; color: var(--muted); }
+.quality { margin-top: 4px; font-size: 11px; font-weight: 700; color: var(--red); letter-spacing: .03em; }
+.btns { display: flex; gap: 10px; align-items: center; }
+.pm-stack { display: grid; gap: 8px; }
+.pm { width: 40px; height: 36px; border: 1px solid #c3ccd6; border-radius: 6px; background: #fff; font-size: 20px; line-height: 1; color: var(--navy); }
+.pm:hover { background: #f3f6f9; }
+.auto { width: 40px; height: 36px; border: 1.5px solid #6fbf83; border-radius: 6px; background: #f2faf4; color: var(--green); font-weight: 700; }
+.auto.active { background: var(--green); border-color: var(--green); color: #fff; }
+.combo { display: grid; width: 62px; border: 1.5px solid #6fbf83; border-radius: 6px; overflow: hidden; }
+.combo .auto { width: auto; border: 0; border-radius: 0; height: 30px; }
+.combo .state { border: 0; height: 32px; font-weight: 700; font-size: 13px; color: #fff; background: var(--green); }
+.combo .state.on { background: var(--red); }
+.dbi-btns { display: grid; grid-template-columns: repeat(2, auto); gap: 6px; }
+.sq { min-width: 54px; height: 30px; padding: 0 8px; border: 1px solid #c3ccd6; border-radius: 5px; background: #fff; font-size: 12.5px; font-weight: 700; color: #3d4c5e; }
+.sq.open-on { background: var(--green); border-color: var(--green); color: #fff; }
+.sq.close-on { background: var(--red); border-color: var(--red); color: #fff; }
+.sq.amber-on { background: var(--amber); border-color: var(--amber); color: #fff; }
+
+.drawer {
+  position: fixed; top: 0; right: 0; bottom: 0; width: min(460px, 100vw);
+  background: var(--card); border-left: 1px solid var(--line); z-index: 20;
+  display: grid; grid-template-rows: auto 1fr; transform: translateX(100%); transition: transform .18s;
+}
+.drawer.open { transform: none; box-shadow: -10px 0 30px rgba(31,49,80,.15); }
+.drawer-head { display: flex; align-items: center; justify-content: space-between; padding: 14px 16px; background: var(--navy); color: #fff; }
+.drawer-head h2 { margin: 0; font-size: 16px; }
+.log { overflow-y: auto; font-size: 13px; }
+.log-row { display: grid; grid-template-columns: 96px 1fr; gap: 8px; padding: 7px 16px; border-bottom: 1px solid var(--line); }
+.log-row time { color: var(--muted); }
+.log-row.fail span { color: var(--red); }
+.text-btn { border: 1px solid #5a6e92; background: transparent; color: #fff; border-radius: 5px; padding: 4px 10px; }
+
+dialog { border: 0; border-radius: 8px; padding: 0; width: min(580px, calc(100vw - 24px)); color: var(--text); box-shadow: 0 20px 50px rgba(31,49,80,.25); }
+dialog::backdrop { background: rgba(31,49,80,.45); }
+dialog form { display: grid; gap: 12px; padding: 18px; }
+dialog h2 { margin: 0; font-size: 18px; color: var(--navy); }
+.grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+@media (max-width: 480px) { .grid2 { grid-template-columns: 1fr; } }
+label { display: grid; gap: 4px; font-size: 12.5px; color: var(--muted); }
+label.check { display: flex; align-items: center; gap: 6px; color: var(--text); font-size: 13px; }
+dialog input:not([type=checkbox]), dialog select { border: 1px solid var(--line-strong); border-radius: 5px; padding: 7px 9px; background: #fff; min-width: 0; }
+fieldset { border: 1px solid var(--line); border-radius: 6px; padding: 10px 12px; display: grid; gap: 10px; margin: 0; }
+legend { font-size: 12.5px; color: var(--muted); padding: 0 4px; }
+.flags { display: flex; flex-wrap: wrap; gap: 6px 14px; }
+.actions { display: flex; gap: 8px; justify-content: flex-end; align-items: center; }
+.actions .spacer { flex: 1; }
+.btn { border: 1px solid var(--line-strong); background: #fff; border-radius: 5px; padding: 7px 16px; }
+.btn.primary { background: var(--navy); border-color: var(--navy); color: #fff; }
+.btn.danger { color: var(--red); border-color: var(--red-line); }
+.alert { padding: 8px 10px; border: 1px solid var(--red-line); color: var(--red); border-radius: 5px; background: #fdeceb; }
+.meta { color: var(--muted); font-size: 12px; }
+.hidden { display: none !important; }
+
+#toast {
+  position: fixed; left: 50%; bottom: 18px; transform: translateX(-50%);
+  background: var(--navy); color: #fff; padding: 10px 16px; border-radius: 6px; font-weight: 600;
+  opacity: 0; transition: opacity .2s; pointer-events: none; z-index: 30; max-width: calc(100vw - 24px);
+}
+#toast.show { opacity: 1; }
+#toast.error { background: var(--red); }
+@container (max-width: 440px) {
+  .bay-body { grid-template-columns: 1fr; gap: 14px; }
+  .lamps { border-right: 0; padding-right: 0; padding-bottom: 14px; border-bottom: 1px solid var(--line); justify-content: start; }
+}
+</style>
+</head>
+<body>
+<header class="top">
+  <div class="brand">
+    <div class="logo" aria-hidden="true">DNP3<br>RTU</div>
+    <div>
+      <h1>DNP3 RTU Simulator</h1>
+      <div class="sub" id="endpoint">memuat…</div>
+    </div>
+  </div>
+  <div class="conn" id="conn"><i></i><span>—</span></div>
+  <div class="tools">
+    <button class="icon-btn" id="add-btn" title="Tambah point" aria-label="Tambah point">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg>
+    </button>
+    <button class="icon-btn" id="settings-btn" title="Pengaturan outstation" aria-label="Pengaturan outstation">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"/></svg>
+    </button>
+    <button class="icon-btn" id="log-btn" title="Log kontrol" aria-label="Log kontrol">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M9 6h11M9 12h11M9 18h11M4.5 6h.01M4.5 12h.01M4.5 18h.01"/></svg>
+    </button>
+    <button class="icon-btn" id="export-btn" title="Export konfigurasi" aria-label="Export konfigurasi">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 4v11M7 10l5 5 5-5M5 19h14"/></svg>
+    </button>
+    <button class="icon-btn" id="template-btn" title="Unduh template import" aria-label="Unduh template import">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 3H6a1 1 0 0 0-1 1v16a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1V8z"/><path d="M14 3v5h5M9 13h6M9 17h6"/></svg>
+    </button>
+    <button class="icon-btn" id="import-btn" title="Import konfigurasi" aria-label="Import konfigurasi">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 15V4M7 9l5-5 5 5M5 19h14"/></svg>
+    </button>
+    <button class="icon-btn" id="fullscreen-btn" title="Layar penuh" aria-label="Layar penuh">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 9V4h5M20 9V4h-5M4 15v5h5M20 15v5h-5"/></svg>
+    </button>
+    <input type="file" id="import-file" accept=".json,application/json" class="hidden">
+  </div>
+</header>
+
+<main class="cols">
+  <section class="col">
+    <div class="col-head">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M12 2v5M12 17v5"/><rect x="7" y="7" width="10" height="10" rx="1"/></svg>
+      <h2>Circuit Breakers</h2>
+    </div>
+    <div class="col-body" id="cb"></div>
+  </section>
+  <section class="col">
+    <div class="col-head">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M5 4h14M12 4v17"/></svg>
+      <h2>Telesignals</h2>
+    </div>
+    <div class="col-body" id="ts"></div>
+  </section>
+  <section class="col">
+    <div class="col-head">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 3v18h18"/><path d="M6 15l4-5 4 3 6-7"/></svg>
+      <h2>Telemetries</h2>
+    </div>
+    <div class="col-body" id="tm"></div>
+  </section>
+</main>
+
+<aside class="drawer" id="drawer" aria-label="Log kontrol">
+  <div class="drawer-head">
+    <h2>Log kontrol &amp; kejadian</h2>
+    <div style="display:flex;gap:8px"><button class="text-btn" id="clear-log">Bersihkan</button><button class="text-btn" id="close-log">Tutup</button></div>
+  </div>
+  <div class="log" id="log"></div>
+</aside>
+
+<dialog id="point-dialog">
+  <form id="point-form" method="dialog">
+    <h2 id="point-title">Tambah point</h2>
+    <div class="grid2">
+      <label>Tipe
+        <select name="kind">
+          <option value="binary_output">Circuit Breaker / kontrol (BO g12)</option>
+          <option value="binary_input">Telesignal single (BI g1/g2)</option>
+          <option value="double_bit">Telesignal double (DBI g3/g4)</option>
+          <option value="analog_input">Telemetry (AI g30/g32)</option>
+          <option value="counter">Counter (g20/g22)</option>
+          <option value="analog_output">Setpoint (AO g40/g41)</option>
+        </select>
+      </label>
+      <label>Index (IOA)<input name="index" type="number" min="0" max="65535" required></label>
+      <label>Nama<input name="name" required></label>
+      <label>Satuan<input name="unit" placeholder="kV, A, Hz, MW…"></label>
+      <label>Nilai awal<input name="value" type="number" step="any" value="0"></label>
+      <label>Event class
+        <select name="class"><option value="1">Class 1</option><option value="2">Class 2</option><option value="3">Class 3</option><option value="0">Tanpa event</option></select>
+      </label>
+    </div>
+
+    <fieldset id="sim-set">
+      <legend>Simulasi otomatis (tombol A)</legend>
+      <div class="grid2">
+        <label>Mode
+          <select name="sim_mode">
+            <option value="">Mati</option>
+            <option value="random">Random walk</option>
+            <option value="sine">Sinus</option>
+            <option value="ramp">Ramp</option>
+            <option value="toggle">Toggle</option>
+          </select>
+        </label>
+        <label>Periode (detik)<input name="sim_period" type="number" step="any" min="0.1" value="60"></label>
+        <label>Min<input name="sim_min" type="number" step="any" value="0"></label>
+        <label>Max<input name="sim_max" type="number" step="any" value="100"></label>
+      </div>
+    </fieldset>
+
+    <fieldset id="fb-set">
+      <legend>Kontrol dari master</legend>
+      <div class="grid2">
+        <label>Status feedback
+          <select name="fb_kind"></select>
+        </label>
+        <label>Index status<input name="fb_index" type="number" min="0" max="65535" value="0"></label>
+        <label>Waktu tempuh (ms)<input name="fb_travel" type="number" min="0" value="2000"></label>
+        <label id="close-index-label">Index kontrol Close<input name="close_index" type="number" min="0" max="65535" placeholder="kosong = 1 index (Trip/Close)"></label>
+      </div>
+      <div class="grid2">
+        <label>Status L/R
+          <select name="lr_kind">
+            <option value="">Tanpa point L/R</option>
+            <option value="binary_input">Single (BI): 1 = Local, 0 = Remote</option>
+            <option value="double_bit">Double (DBI): 2 = Local, 1 = Remote</option>
+          </select>
+        </label>
+        <label id="lr-index-label">Index L/R<input name="lr_index" type="number" min="0" max="65535" value="0"></label>
+        <label class="check" id="local-label" style="align-self:end"><input name="local" type="checkbox"> LOCAL (tolak kontrol)</label>
+      </div>
+      <div class="meta">Point L/R dikirim ke master dan menjadi acuan: saat bernilai LOCAL, kontrol dari master ditolak dengan status Local.</div>
+    </fieldset>
+
+    <fieldset>
+      <legend>Quality</legend>
+      <div class="flags" id="flag-boxes"></div>
+    </fieldset>
+
+    <div class="actions">
+      <button type="button" class="btn danger hidden" id="delete-point">Hapus</button>
+      <span class="spacer"></span>
+      <button type="button" class="btn" data-close>Batal</button>
+      <button type="submit" class="btn primary">Simpan</button>
+    </div>
+  </form>
+</dialog>
+
+<dialog id="settings-dialog">
+  <form id="settings-form" method="dialog">
+    <h2>Pengaturan outstation</h2>
+    <div id="error" class="alert hidden"></div>
+    <div class="grid2">
+      <label>IP bind<input name="bind_ip" required></label>
+      <label>Port<input name="port" type="number" min="1" max="65535" required></label>
+      <label>Alamat outstation<input name="outstation_address" type="number" min="0" max="65519" required></label>
+      <label>Alamat master<input name="master_address" type="number" min="0" max="65519" required></label>
+      <label>Event buffer per tipe<input name="event_buffer" type="number" min="1" max="65535" required></label>
+      <label class="check" style="align-self:end"><input name="unsolicited" type="checkbox"> Unsolicited</label>
+    </div>
+    <div class="meta">Menyimpan akan me-restart outstation; koneksi master terputus sebentar.</div>
+    <div class="actions">
+      <button type="button" class="btn" data-close>Batal</button>
+      <button type="submit" class="btn primary">Simpan &amp; restart</button>
+    </div>
+  </form>
+</dialog>
+
+<div id="toast"></div>
+
+<script>
+const FLAGS = [[0x01, "ONLINE"], [0x02, "RESTART"], [0x04, "COMM_LOST"], [0x08, "REMOTE_FORCED"], [0x10, "LOCAL_FORCED"]];
+const KIND = {
+  binary_input: "BI", double_bit: "DBI", binary_output: "BO",
+  analog_input: "AI", analog_output: "AO", counter: "Counter",
+};
+
+let state = null;
+let editing = null;
+let editingValue = null;
+let inlineEdit = null;
+
+const PENCIL = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 20h4L18.5 9.5a2.1 2.1 0 0 0-4-4L4 16v4zM13.5 6.5l4 4"/></svg>`;
+
+function editable(p, path, value, suffix = "") {
+  if (inlineEdit && inlineEdit.id === p.id && inlineEdit.path === path) {
+    return `<input class="inline-input" type="number" min="0" step="1" value="${value}" data-inline-input="${p.id}" data-path="${path}">`;
+  }
+  return `<button class="inline-val" data-inline="${p.id}" data-path="${path}" title="Klik untuk ubah">${value}${suffix}</button>`;
+}
+
+function claimedBo() {
+  return new Set(state.points.filter((p) => p.kind === "binary_output").flatMap((p) => [p.index, p.close_index].filter((v) => v != null)));
+}
+
+function freeBoIndex(from) {
+  const used = claimedBo();
+  let i = from + 1;
+  while (used.has(i)) i++;
+  return i;
+}
+
+async function ensureLinks(body) {
+  const created = [];
+  const ensure = async (link, name) => {
+    if (!link || find(link.kind, link.index)) return;
+    await api("POST", "/api/points", { kind: link.kind, index: link.index, name, value: link.kind === "double_bit" ? 1 : 0, class: body.class ?? 1, flags: 0x01 });
+    created.push(`${KIND[link.kind]} ${link.index}`);
+  };
+  await ensure(body.feedback && body.feedback.kind !== "analog_input" ? body.feedback : null, body.name);
+  await ensure(body.feedback && body.feedback.kind === "analog_input" ? body.feedback : null, `${body.name} Feedback`);
+  await ensure(body.lr, `${body.name} L/R`);
+  if (created.length) toast(`Point ${created.join(" dan ")} ikut dibuat`);
+}
+
+function updatePoint(p, mutate) {
+  const data = structuredClone(pointData(p));
+  mutate(data);
+  run(async () => { await api("PUT", `/api/points/${p.id}`, data); await ensureLinks(data); });
+}
+
+const $ = (s) => document.querySelector(s);
+const esc = (s) => String(s).replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+const fmt = (v) => {
+  if (Number.isInteger(v)) return String(v);
+  const a = Math.abs(v);
+  return v.toFixed(a >= 100 ? 1 : a >= 10 ? 2 : 3).replace(/0+$/, "").replace(/\.$/, "");
+};
+
+function toast(msg, error = false) {
+  const t = $("#toast");
+  t.textContent = msg;
+  t.className = "show" + (error ? " error" : "");
+  clearTimeout(t._h);
+  t._h = setTimeout(() => (t.className = ""), 3200);
+}
+
+async function api(method, url, body) {
+  const res = await fetch(url, {
+    method,
+    headers: { "Content-Type": "application/json" },
+    body: body === undefined ? undefined : JSON.stringify(body),
+  });
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok) throw new Error(data.error || res.statusText);
+  state = data;
+  render();
+  return data;
+}
+const run = (fn) => fn().catch((e) => toast(e.message, true));
+
+const pointData = (p, patch = {}) => {
+  const { id, ...data } = p;
+  return { ...data, ...patch };
+};
+const setValue = (p, value) => run(() => api("POST", `/api/points/${p.id}/value`, { value }));
+const savePoint = (p, patch) => run(() => api("PUT", `/api/points/${p.id}`, pointData(p, patch)));
+const byId = (id) => state.points.find((p) => p.id === Number(id));
+const find = (kind, index) => state.points.find((p) => p.kind === kind && p.index === index);
+
+function qualityText(p) {
+  const bad = [];
+  if (!(p.flags & 0x01)) bad.push("INVALID");
+  for (const [bit, name] of FLAGS.slice(1)) if (p.flags & bit) bad.push(name);
+  return bad.length ? `<div class="quality">${bad.join(" · ")}</div>` : "";
+}
+
+function position(p) {
+  if (!p) return null;
+  if (p.kind === "double_bit") return ["inter", "open", "close", "bad"][p.value] || "bad";
+  return p.value ? "close" : "open";
+}
+
+function defaultSim(p) {
+  if (p.kind === "binary_input" || p.kind === "double_bit") return { mode: "toggle", min: 0, max: 1, period_s: 30 };
+  if (p.kind === "counter") return { mode: "random", min: 1, max: 5, period_s: 1 };
+  const v = p.value;
+  const span = Math.abs(v) * 0.05 || 5;
+  return { mode: "random", min: +(v - span).toFixed(3), max: +(v + span).toFixed(3), period_s: 60 };
+}
+
+const ICON = {
+  open: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M12 2.5v6M12 15.5v6M12 15.5L6.5 9.5"/><circle cx="12" cy="8.5" r="1.2" fill="currentColor"/></svg>`,
+  close: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M12 2.5v19"/><circle cx="12" cy="8.5" r="1.2" fill="currentColor"/><path d="M9.5 15.5h5"/></svg>`,
+  breaker: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M12 2v5M12 17v5"/><rect x="7" y="7" width="10" height="10" rx="1"/></svg>`,
+  signal: `<svg viewBox="0 0 48 48" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round"><path d="M14 12a17 17 0 0 0 0 24M34 12a17 17 0 0 1 0 24M19 17a10 10 0 0 0 0 14M29 17a10 10 0 0 1 0 14M21 28l6-8"/></svg>`,
+  chart: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 3v18h18"/><path d="M6 15l4-5 4 3 6-7"/></svg>`,
+};
+
+function emptyState(icon, text) {
+  return `<div class="empty">${icon}<div>${text}</div></div>`;
+}
+
+function lrPoint(p) {
+  return p.lr ? find(p.lr.kind, p.lr.index) : null;
+}
+
+function isLocal(p) {
+  const lr = lrPoint(p);
+  if (!lr) return p.local;
+  return lr.kind === "double_bit" ? lr.value === 2 : lr.value !== 0;
+}
+
+function toggleLocal(p) {
+  const lr = lrPoint(p);
+  const local = !isLocal(p);
+  if (!lr) return savePoint(p, { local });
+  setValue(lr, lr.kind === "double_bit" ? (local ? 2 : 1) : (local ? 1 : 0));
+}
+
+function renderBreakers() {
+  const outputs = state.points.filter((p) => p.kind === "binary_output");
+  if (!outputs.length) return emptyState(ICON.breaker, "Belum ada circuit breaker.<br>Klik + lalu pilih tipe “Circuit Breaker / kontrol”.");
+  return `<div class="bays">${outputs.map((bo) => {
+    const fb = bo.feedback ? find(bo.feedback.kind, bo.feedback.index) : null;
+    const status = fb || bo;
+    const pos = position(status);
+    const online = (status.flags & 0x01) !== 0;
+    const isDouble = status.kind === "double_bit";
+    const lit = (color) => !online ? "dead" : (color === "green" && (pos === "open" || pos === "bad")) || (color === "red" && (pos === "close" || pos === "bad")) ? "lit" : "";
+    const label = online ? { open: "OPEN", close: "CLOSE", inter: "INTERMEDIATE", bad: "BAD STATE" }[pos] : "INVALID";
+    const openVal = isDouble ? 1 : 0;
+    const closeVal = isDouble ? 2 : 1;
+    const mode = !bo.feedback ? "Kontrol saja" : isDouble ? "Double status &amp; kontrol" : "Single status &amp; kontrol";
+    const remote = !isLocal(bo);
+    const lockTitle = "Mode REMOTE: CB hanya bisa dioperasikan dari master. Pindah ke LOCAL untuk operasi dari panel.";
+    const lampAttrs = (v, label) => remote ? `disabled title="${lockTitle}"` : `data-set="${status.id}" data-v="${v}" title="Operasi lokal: ${label}"`;
+    return `
+      <article class="bay">
+        <h3 class="bay-title"><span class="bay-icon ${online ? pos : "dead"}">${ICON.breaker}</span><button data-edit="${bo.id}">${esc(bo.name)}</button><button class="bay-edit" data-edit="${bo.id}" title="Ubah semua pengaturan" aria-label="Ubah ${esc(bo.name)}">${PENCIL}</button></h3>
+        <div class="bay-body">
+          <div class="lamps ${pos === "inter" && online ? "inter" : ""}">
+            <button class="lamp-btn" ${lampAttrs(openVal, "OPEN")}><span class="lamp green ${lit("green")}">${ICON.open}</span><span class="lamp-label green">Open</span></button>
+            <button class="lamp-btn" ${lampAttrs(closeVal, "CLOSE")}><span class="lamp red ${lit("red")}">${ICON.close}</span><span class="lamp-label red">Close</span></button>
+            ${isDouble ? `<div class="small-row">
+              <button class="chip-btn inter ${pos === "inter" ? "sel" : ""}" data-set="${status.id}" data-v="0">Inter 00</button>
+              <button class="chip-btn ${pos === "bad" ? "sel" : ""}" data-set="${status.id}" data-v="3">Bad 11</button>
+            </div>` : ""}
+            <div class="state-text ${online ? pos : "dead"}">${label}</div>
+            ${remote ? `<div class="lock-note" title="${lockTitle}"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="5" y="11" width="14" height="10" rx="2"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/></svg>Remote: operasi lokal terkunci</div>` : ""}
+          </div>
+          <div class="info">
+            ${bo.feedback ? `<div>Index status ${KIND[bo.feedback.kind]}:${editable(bo, "feedback.index", bo.feedback.index)}${fb ? "" : ` <span class="quality">tidak ditemukan</span>`}</div>` : ""}
+            ${bo.close_index == null
+              ? `<div>Index kontrol BO:${editable(bo, "index", bo.index)}</div>`
+              : `<div>Index kontrol Open:${editable(bo, "index", bo.index)}</div><div>Index kontrol Close:${editable(bo, "close_index", bo.close_index)}</div>`}
+            <div>Tipe kontrol:<span class="seg"><button class="${bo.close_index == null ? "sel" : ""}" data-ctl="${bo.id}" data-mode="1" title="Satu index BO, arah dari kode TRIP/CLOSE atau LATCH ON/OFF">1 index</button><button class="${bo.close_index != null ? "sel" : ""}" data-ctl="${bo.id}" data-mode="2" title="Index BO terpisah untuk Open dan Close">2 index</button></span></div>
+            ${bo.feedback ? `<div>Waktu tempuh:${editable(bo, "feedback.travel_ms", bo.feedback.travel_ms, " ms")}</div>` : ""}
+            <div>Status BO:<b>${bo.value ? "ON" : "OFF"}</b></div>
+            <div>Mode: ${mode}</div>
+            ${bo.lr ? `<div>Index L/R ${KIND[bo.lr.kind]}:${editable(bo, "lr.index", bo.lr.index)}${lrPoint(bo) ? "" : ` <span class="quality">tidak ditemukan</span>`}</div>` : `<div>Index L/R:<button class="link-btn" data-add-lr="${bo.id}">+ buat point L/R</button> <span class="meta">(sekarang internal)</span></div>`}
+            ${qualityText(status)}
+            <div class="lr">
+              <span>L</span>
+              <button class="switch ${isLocal(bo) ? "" : "remote"}" data-local="${bo.id}" title="${isLocal(bo) ? "LOCAL: kontrol dari master ditolak" : "REMOTE: kontrol dari master diterima"}" aria-label="Local/Remote"></button>
+              <span>R</span>
+              <span class="tag">${isLocal(bo) ? "Local" : "Remote"}</span>
+            </div>
+          </div>
+        </div>
+      </article>`;
+  }).join("")}</div>`;
+}
+
+function renderTelesignals() {
+  const feedbackKeys = new Set(state.points.flatMap((p) => [p.feedback, p.lr].filter(Boolean).map((l) => `${l.kind}:${l.index}`)));
+  const signals = state.points.filter((p) => (p.kind === "binary_input" || p.kind === "double_bit") && !feedbackKeys.has(`${p.kind}:${p.index}`));
+  if (!signals.length) return emptyState(ICON.signal, "Belum ada data telesignal");
+  return `<div class="ts-list">${signals.map((p) => {
+    const auto = (extra = "") => `<button class="auto ${p.sim ? "active" : ""} ${extra}" data-auto="${p.id}" title="Simulasi otomatis">A</button>`;
+    let text, cls, controls;
+    if (p.kind === "double_bit") {
+      const pos = position(p);
+      text = { open: "OPEN", close: "CLOSE", inter: "INTER", bad: "BAD" }[pos];
+      cls = pos;
+      controls = `${auto()}
+        <div class="dbi-btns">
+          <button class="sq ${p.value === 1 ? "open-on" : ""}" data-set="${p.id}" data-v="1">OPEN</button>
+          <button class="sq ${p.value === 2 ? "close-on" : ""}" data-set="${p.id}" data-v="2">CLOSE</button>
+          <button class="sq ${p.value === 0 ? "amber-on" : ""}" data-set="${p.id}" data-v="0">00</button>
+          <button class="sq ${p.value === 3 ? "amber-on" : ""}" data-set="${p.id}" data-v="3">11</button>
+        </div>`;
+    } else {
+      text = p.value ? "ON" : "OFF";
+      cls = p.value ? "on" : "off";
+      controls = `<div class="combo">${auto()}<button class="state ${p.value ? "on" : ""}" data-set="${p.id}" data-v="${p.value ? 0 : 1}" title="Klik untuk ${p.value ? "OFF" : "ON"}">${p.value ? "ON" : "OFF"}</button></div>`;
+    }
+    return `
+      <div class="row">
+        <div class="name"><button data-edit="${p.id}">${esc(p.name)}</button><small>${KIND[p.kind]}</small></div>
+        <div><div class="big ${cls}">${text}</div><div class="idx">Index:${editable(p, "index", p.index)}</div>${qualityText(p)}</div>
+        <div class="btns">${controls}</div>
+      </div>`;
+  }).join("")}</div>`;
+}
+
+function step(p) {
+  if (p.kind === "counter") return 1;
+  const a = Math.abs(p.value);
+  return a >= 1000 ? 10 : a >= 100 ? 1 : a >= 1 ? 0.1 : 0.01;
+}
+
+function renderTelemetries() {
+  const order = { analog_input: 0, analog_output: 1, counter: 2 };
+  const values = state.points.filter((p) => p.kind in order).sort((a, b) => order[a.kind] - order[b.kind] || a.index - b.index);
+  if (!values.length) return emptyState(ICON.chart, "Belum ada data telemetry");
+  return `<div class="list">${values.map((p) => {
+    const unit = p.unit ? `<small>${esc(p.unit)}</small>` : "";
+    const value = editingValue === p.id
+      ? `<input class="val-input" type="number" step="any" value="${p.value}" data-value-input="${p.id}">`
+      : `<button class="val-btn" data-value-edit="${p.id}" title="Klik untuk isi nilai">${fmt(p.value)}${unit}</button>`;
+    const sub = p.kind === "analog_output" ? "AO · setpoint" : p.kind === "counter" ? "Counter" : "AI";
+    return `
+      <div class="row">
+        <div class="name"><button data-edit="${p.id}">${esc(p.name)}</button><small>${sub}</small></div>
+        <div>${value}<div class="idx">Index:${editable(p, "index", p.index)}</div>${qualityText(p)}</div>
+        <div class="btns">
+          <div class="pm-stack"><button class="pm" data-step="${p.id}" data-dir="1" title="Tambah ${step(p)}">+</button><button class="pm" data-step="${p.id}" data-dir="-1" title="Kurangi ${step(p)}">−</button></div>
+          ${p.kind === "analog_output" ? `<span style="width:40px"></span>` : `<button class="auto ${p.sim ? "active" : ""}" data-auto="${p.id}" title="Simulasi otomatis">A</button>`}
+        </div>
+      </div>`;
+  }).join("")}</div>`;
+}
+
+function renderHeader() {
+  const s = state.settings;
+  $("#endpoint").innerHTML = `<span>${esc(s.bind_ip)}:${s.port}</span><span>Outstation: ${s.outstation_address}</span><span>Master: ${s.master_address}</span><span>Unsolicited: ${s.unsolicited ? "ON" : "OFF"}</span>`;
+  const conn = $("#conn");
+  conn.className = "conn " + (state.connected ? "on" : state.running ? "wait" : "off");
+  conn.querySelector("span").textContent = state.connected ? "Master terhubung" : state.running ? "Menunggu master" : "Outstation berhenti";
+  const err = $("#error");
+  err.textContent = state.error || "";
+  err.classList.toggle("hidden", !state.error);
+}
+
+function renderLog() {
+  $("#log").innerHTML = state.log.length ? state.log.map((e) => {
+    const d = new Date(e.time_ms);
+    const t = d.toLocaleTimeString("id-ID", { hour12: false }) + "." + String(d.getMilliseconds()).padStart(3, "0");
+    return `<div class="log-row ${e.ok ? "" : "fail"}"><time>${t}</time><span>${esc(e.text)}</span></div>`;
+  }).join("") : `<div class="empty">Belum ada kejadian.</div>`;
+}
+
+function render() {
+  if (!state) return;
+  renderHeader();
+  const active = document.activeElement;
+  for (const [sel, fn] of [["#cb", renderBreakers], ["#ts", renderTelesignals], ["#tm", renderTelemetries]]) {
+    const el = $(sel);
+    if (!(active && active.tagName === "INPUT" && el.contains(active))) el.innerHTML = fn();
+  }
+  renderLog();
+  const input = document.querySelector("[data-value-input], [data-inline-input]");
+  if (input && document.activeElement !== input) { input.focus(); input.select(); }
+}
+
+async function poll() {
+  try {
+    const res = await fetch("/api/state");
+    state = await res.json();
+    render();
+  } catch {
+    const conn = $("#conn");
+    conn.className = "conn off";
+    conn.querySelector("span").textContent = "UI terputus dari simulator";
+  }
+}
+
+function commitInline(input) {
+  const p = byId(input.dataset.inlineInput);
+  const path = input.dataset.path;
+  inlineEdit = null;
+  if (!p || input.value === "") return render();
+  input.blur();
+  updatePoint(p, (data) => {
+    const keys = path.split(".");
+    let target = data;
+    for (const key of keys.slice(0, -1)) target = target[key];
+    target[keys[keys.length - 1]] = Number(input.value);
+  });
+}
+
+function commitValue(input) {
+  const p = byId(input.dataset.valueInput);
+  editingValue = null;
+  if (input.value === "" || !p) return render();
+  input.blur();
+  setValue(p, Number(input.value));
+}
+
+document.addEventListener("click", (ev) => {
+  const t = ev.target.closest("button");
+  if (!t) return;
+  const d = t.dataset;
+  if (d.set) return setValue(byId(d.set), Number(d.v));
+  if (d.edit) return openPoint(byId(d.edit));
+  if (d.local) return toggleLocal(byId(d.local));
+  if (d.auto) { const p = byId(d.auto); return savePoint(p, { sim: p.sim ? null : defaultSim(p) }); }
+  if (d.step) {
+    const p = byId(d.step);
+    const next = +(p.value + Number(d.dir) * step(p)).toFixed(6);
+    return setValue(p, p.kind === "counter" ? Math.max(0, next) : next);
+  }
+  if (d.valueEdit) { editingValue = Number(d.valueEdit); inlineEdit = null; render(); return; }
+  if (d.inline) { inlineEdit = { id: Number(d.inline), path: d.path }; editingValue = null; render(); return; }
+  if (d.ctl) {
+    const p = byId(d.ctl);
+    const close = d.mode === "2" ? (p.close_index ?? freeBoIndex(p.index)) : null;
+    return updatePoint(p, (data) => { data.close_index = close; });
+  }
+  if (d.addLr) {
+    const p = byId(d.addLr);
+    return updatePoint(p, (data) => { data.lr = { kind: "binary_input", index: nextIndex("binary_input") }; data.local = false; });
+  }
+  if ("close" in d) return t.closest("dialog").close();
+});
+
+document.addEventListener("keydown", (ev) => {
+  const t = ev.target;
+  if (!t.dataset || !(t.dataset.valueInput || t.dataset.inlineInput)) return;
+  if (ev.key === "Enter") return t.dataset.inlineInput ? commitInline(t) : commitValue(t);
+  if (ev.key === "Escape") { editingValue = null; inlineEdit = null; t.blur(); render(); }
+});
+document.addEventListener("focusout", (ev) => {
+  const d = ev.target.dataset || {};
+  if (!d.valueInput && !d.inlineInput) return;
+  setTimeout(() => {
+    if (document.activeElement && document.activeElement.tagName === "INPUT") return;
+    if (editingValue !== null || inlineEdit !== null) { editingValue = null; inlineEdit = null; render(); }
+  }, 150);
+});
+
+const pform = $("#point-form");
+const pdialog = $("#point-dialog");
+
+$("#flag-boxes").innerHTML = FLAGS.map(([bit, name]) => `<label class="check"><input type="checkbox" name="flag" value="${bit}"> ${name}</label>`).join("");
+
+function syncPointForm() {
+  const kind = pform.elements.kind.value;
+  const isOutput = kind === "binary_output" || kind === "analog_output";
+  $("#fb-set").classList.toggle("hidden", !isOutput);
+  $("#sim-set").classList.toggle("hidden", isOutput);
+  const fb = pform.elements.fb_kind;
+  const options = kind === "binary_output"
+    ? [["double_bit", "Double (DBI)"], ["binary_input", "Single (BI)"], ["", "Tanpa status"]]
+    : [["analog_input", "Analog Input (AI)"], ["", "Tanpa feedback"]];
+  const current = fb.value;
+  fb.innerHTML = options.map(([v, t]) => `<option value="${v}">${t}</option>`).join("");
+  if (options.some(([v]) => v === current)) fb.value = current;
+  $("#close-index-label").classList.toggle("hidden", kind !== "binary_output");
+  syncLr();
+}
+
+function syncLr() {
+  const hasLr = pform.elements.lr_kind.value !== "";
+  $("#lr-index-label").classList.toggle("hidden", !hasLr);
+  $("#local-label").classList.toggle("hidden", hasLr);
+}
+
+function nextIndex(kind) {
+  const used = state.points.filter((p) => p.kind === kind).map((p) => p.index);
+  return used.length ? Math.max(...used) + 1 : 0;
+}
+
+function openPoint(p) {
+  editing = p || null;
+  pform.reset();
+  const e = pform.elements;
+  $("#point-title").textContent = p ? `Ubah ${KIND[p.kind]} ${p.index} — ${p.name}` : "Tambah point";
+  $("#delete-point").classList.toggle("hidden", !p);
+  if (p) {
+    e.kind.value = p.kind;
+    syncPointForm();
+    e.index.value = p.index;
+    e.name.value = p.name;
+    e.unit.value = p.unit || "";
+    e.value.value = p.value;
+    e.class.value = p.class;
+    e.sim_mode.value = p.sim ? p.sim.mode : "";
+    if (p.sim) { e.sim_min.value = p.sim.min; e.sim_max.value = p.sim.max; e.sim_period.value = p.sim.period_s; }
+    e.fb_kind.value = p.feedback ? p.feedback.kind : "";
+    if (p.feedback) { e.fb_index.value = p.feedback.index; e.fb_travel.value = p.feedback.travel_ms; }
+    e.close_index.value = p.close_index ?? "";
+    e.local.checked = p.local;
+    e.lr_kind.value = p.lr ? p.lr.kind : "";
+    if (p.lr) e.lr_index.value = p.lr.index;
+    syncLr();
+  } else {
+    syncPointForm();
+    e.index.value = nextIndex(e.kind.value);
+    e.fb_index.value = nextIndex(e.fb_kind.value || "double_bit");
+    e.lr_index.value = nextIndex("binary_input");
+    syncLr();
+  }
+  const flags = p ? p.flags : 0x01;
+  for (const box of pform.querySelectorAll("[name=flag]")) box.checked = (flags & Number(box.value)) !== 0;
+  pdialog.showModal();
+}
+
+pform.elements.lr_kind.addEventListener("change", () => {
+  syncLr();
+  if (pform.elements.lr_kind.value) pform.elements.lr_index.value = nextIndex(pform.elements.lr_kind.value);
+});
+
+pform.elements.kind.addEventListener("change", () => {
+  syncPointForm();
+  if (!editing) pform.elements.index.value = nextIndex(pform.elements.kind.value);
+});
+
+pform.addEventListener("submit", (ev) => {
+  ev.preventDefault();
+  const e = pform.elements;
+  const kind = e.kind.value;
+  const isOutput = kind === "binary_output" || kind === "analog_output";
+  const flags = [...pform.querySelectorAll("[name=flag]:checked")].reduce((a, b) => a | Number(b.value), 0);
+  const body = {
+    kind,
+    index: Number(e.index.value),
+    name: e.name.value,
+    unit: e.unit.value,
+    value: Number(e.value.value || 0),
+    class: Number(e.class.value),
+    flags,
+    local: isOutput && !e.lr_kind.value && e.local.checked,
+    lr: isOutput && e.lr_kind.value ? { kind: e.lr_kind.value, index: Number(e.lr_index.value) } : null,
+    sim: !isOutput && e.sim_mode.value ? { mode: e.sim_mode.value, min: Number(e.sim_min.value), max: Number(e.sim_max.value), period_s: Number(e.sim_period.value) } : null,
+    feedback: isOutput && e.fb_kind.value ? { kind: e.fb_kind.value, index: Number(e.fb_index.value), travel_ms: Number(e.fb_travel.value) } : null,
+    close_index: kind === "binary_output" && e.close_index.value !== "" ? Number(e.close_index.value) : null,
+  };
+  const req = editing ? api("PUT", `/api/points/${editing.id}`, body) : api("POST", "/api/points", body);
+  req.then(async () => {
+    pdialog.close();
+    await ensureLinks(body);
+  }).catch((err) => toast(err.message, true));
+});
+
+$("#delete-point").addEventListener("click", () => {
+  if (!editing) return;
+  if (!confirm(`Hapus ${KIND[editing.kind]} ${editing.index} "${editing.name}"?`)) return;
+  const id = editing.id;
+  pdialog.close();
+  run(() => api("DELETE", `/api/points/${id}`));
+});
+
+const sform = $("#settings-form");
+$("#settings-btn").addEventListener("click", () => {
+  for (const [k, v] of Object.entries(state.settings)) {
+    const el = sform.elements[k];
+    if (!el) continue;
+    if (el.type === "checkbox") el.checked = v; else el.value = v;
+  }
+  $("#settings-dialog").showModal();
+});
+sform.addEventListener("submit", (ev) => {
+  ev.preventDefault();
+  const e = sform.elements;
+  const body = {
+    bind_ip: e.bind_ip.value.trim(),
+    port: Number(e.port.value),
+    outstation_address: Number(e.outstation_address.value),
+    master_address: Number(e.master_address.value),
+    event_buffer: Number(e.event_buffer.value),
+    unsolicited: e.unsolicited.checked,
+  };
+  api("POST", "/api/settings", body).then(() => { $("#settings-dialog").close(); toast("Outstation di-restart"); }).catch((err) => toast(err.message, true));
+});
+
+$("#add-btn").addEventListener("click", () => openPoint(null));
+$("#fullscreen-btn").addEventListener("click", () => {
+  if (document.fullscreenElement) document.exitFullscreen();
+  else document.documentElement.requestFullscreen().catch(() => toast("Layar penuh tidak diizinkan browser", true));
+});
+$("#log-btn").addEventListener("click", () => $("#drawer").classList.toggle("open"));
+$("#close-log").addEventListener("click", () => $("#drawer").classList.remove("open"));
+$("#clear-log").addEventListener("click", () => run(() => api("DELETE", "/api/log")));
+$("#export-btn").addEventListener("click", () => { window.location.href = "/api/config/export"; });
+$("#template-btn").addEventListener("click", () => { window.location.href = "/api/config/template"; });
+$("#import-btn").addEventListener("click", () => $("#import-file").click());
+$("#import-file").addEventListener("change", async (ev) => {
+  const file = ev.target.files[0];
+  ev.target.value = "";
+  if (!file) return;
+  let data;
+  try { data = JSON.parse(await file.text()); } catch { return toast(`${file.name} bukan file JSON yang valid`, true); }
+  const count = Array.isArray(data.points) ? data.points.length : 0;
+  if (!confirm(`Import ${count} point dari ${file.name}?\nSemua point dan pengaturan saat ini akan diganti, dan koneksi master terputus sebentar.`)) return;
+  run(async () => { await api("POST", "/api/config/import", data); toast(`${count} point diimport`); });
+});
+
+poll();
+setInterval(poll, 500);
+</script>
+</body>
+</html>

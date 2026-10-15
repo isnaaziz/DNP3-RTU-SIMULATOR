@@ -1,0 +1,200 @@
+{
+  "_keterangan": {
+    "cara_pakai": "Ubah bagian settings dan points sesuai kebutuhan, lalu import lewat tombol Import di UI. Bagian _keterangan ini diabaikan saat import dan boleh dihapus.",
+    "settings": {
+      "bind_ip": "IP yang di-listen outstation. 0.0.0.0 = semua interface.",
+      "port": "Port TCP DNP3, 1-65535.",
+      "outstation_address": "Alamat link outstation (RTU), 0-65519.",
+      "master_address": "Alamat link master SCADA, 0-65519, harus berbeda dari outstation_address.",
+      "event_buffer": "Jumlah event yang ditampung per tipe point.",
+      "unsolicited": "true = outstation boleh mengirim unsolicited setelah master mengaktifkannya."
+    },
+    "points": {
+      "kind": "binary_input (BI g1/g2), double_bit (DBI g3/g4), binary_output (BO kontrol g10/g12), analog_input (AI g30/g32), counter (g20/g22), analog_output (AO setpoint g40/g41).",
+      "index": "Index (IOA) DNP3, 0-65535. Kombinasi kind + index harus unik.",
+      "close_index": "Khusus binary_output, atau null. Diisi = kontrol 2 index: index = kontrol Open, close_index = kontrol Close (perintah apa pun ke index ini membuka/menutup). Kosong = kontrol 1 index, arah dari kode TRIP/CLOSE atau LATCH ON/OFF.",
+      "name": "Nama yang tampil di UI.",
+      "unit": "Satuan untuk telemetry, misalnya kV, A, Hz, MW. Boleh kosong.",
+      "value": "Nilai awal. BI/BO: 0 atau 1. DBI: 0 intermediate, 1 open/off, 2 close/on, 3 bad. Counter: bilangan bulat >= 0. AI/AO: angka apa pun.",
+      "flags": "Quality, dijumlahkan: 1 ONLINE, 2 RESTART, 4 COMM_LOST, 8 REMOTE_FORCED, 16 LOCAL_FORCED. Normal = 1.",
+      "class": "Event class 1, 2, 3, atau 0 untuk tanpa event.",
+      "sim": "Simulasi otomatis (tombol A) atau null. mode: random, sine, ramp, toggle. min/max: rentang nilai. period_s: periode dalam detik. Untuk counter, setiap detik bertambah acak antara min dan max.",
+      "feedback": "Khusus binary_output dan analog_output, atau null. Point status yang berubah saat master mengirim kontrol. binary_output -> double_bit atau binary_input; analog_output -> analog_input. travel_ms: waktu tempuh; double_bit melewati posisi intermediate selama waktu ini.",
+      "lr": "Khusus output, atau null. Point status Local/Remote yang dikirim ke master. kind: binary_input (1 = Local, 0 = Remote) atau double_bit (2 = Local, 1 = Remote). Saat bernilai Local, kontrol dari master ditolak dengan status Local. Saklar L/R di UI mengubah point ini.",
+      "local": "Khusus output tanpa lr. true = mode LOCAL internal, kontrol dari master ditolak (tidak dikirim ke master)."
+    }
+  },
+  "settings": {
+    "bind_ip": "0.0.0.0",
+    "port": 20000,
+    "outstation_address": 10,
+    "master_address": 1,
+    "event_buffer": 200,
+    "unsolicited": true
+  },
+  "points": [
+    {
+      "kind": "double_bit",
+      "index": 0,
+      "name": "CB Incoming",
+      "value": 2,
+      "flags": 1,
+      "class": 1,
+      "sim": null
+    },
+    {
+      "kind": "binary_output",
+      "index": 0,
+      "name": "CB Incoming",
+      "value": 1,
+      "flags": 1,
+      "class": 1,
+      "feedback": {
+        "kind": "double_bit",
+        "index": 0,
+        "travel_ms": 2000
+      },
+      "local": false,
+      "lr": {
+        "kind": "binary_input",
+        "index": 20
+      }
+    },
+    {
+      "kind": "binary_input",
+      "index": 20,
+      "name": "CB Incoming L/R",
+      "value": 0,
+      "flags": 1,
+      "class": 1,
+      "sim": null
+    },
+    {
+      "kind": "binary_input",
+      "index": 0,
+      "name": "LBS Feeder 1",
+      "value": 0,
+      "flags": 1,
+      "class": 1,
+      "sim": null
+    },
+    {
+      "kind": "binary_output",
+      "index": 1,
+      "close_index": 2,
+      "name": "LBS Feeder 1",
+      "value": 0,
+      "flags": 1,
+      "class": 1,
+      "feedback": {
+        "kind": "binary_input",
+        "index": 0,
+        "travel_ms": 1000
+      },
+      "local": false
+    },
+    {
+      "kind": "binary_input",
+      "index": 10,
+      "name": "OCR",
+      "value": 0,
+      "flags": 1,
+      "class": 1,
+      "sim": null
+    },
+    {
+      "kind": "double_bit",
+      "index": 10,
+      "name": "DS Busbar",
+      "value": 2,
+      "flags": 1,
+      "class": 1,
+      "sim": {
+        "mode": "toggle",
+        "min": 0,
+        "max": 1,
+        "period_s": 30
+      }
+    },
+    {
+      "kind": "analog_input",
+      "index": 0,
+      "name": "Tegangan",
+      "unit": "kV",
+      "value": 20,
+      "flags": 1,
+      "class": 1,
+      "sim": {
+        "mode": "sine",
+        "min": 19.5,
+        "max": 20.5,
+        "period_s": 60
+      }
+    },
+    {
+      "kind": "analog_input",
+      "index": 1,
+      "name": "Arus Phase R",
+      "unit": "A",
+      "value": 100,
+      "flags": 1,
+      "class": 1,
+      "sim": {
+        "mode": "random",
+        "min": 50,
+        "max": 150,
+        "period_s": 1
+      }
+    },
+    {
+      "kind": "analog_input",
+      "index": 3307,
+      "name": "Frekuensi",
+      "unit": "Hz",
+      "value": 50,
+      "flags": 1,
+      "class": 1,
+      "sim": null
+    },
+    {
+      "kind": "counter",
+      "index": 0,
+      "name": "kWh Export",
+      "unit": "kWh",
+      "value": 1000,
+      "flags": 1,
+      "class": 1,
+      "sim": {
+        "mode": "random",
+        "min": 1,
+        "max": 5,
+        "period_s": 1
+      }
+    },
+    {
+      "kind": "analog_input",
+      "index": 100,
+      "name": "Setpoint Feedback",
+      "unit": "MW",
+      "value": 0,
+      "flags": 1,
+      "class": 1,
+      "sim": null
+    },
+    {
+      "kind": "analog_output",
+      "index": 0,
+      "name": "Setpoint Daya",
+      "unit": "MW",
+      "value": 0,
+      "flags": 1,
+      "class": 1,
+      "feedback": {
+        "kind": "analog_input",
+        "index": 100,
+        "travel_ms": 500
+      },
+      "local": false
+    }
+  ]
+}

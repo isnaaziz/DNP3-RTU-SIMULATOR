@@ -1,0 +1,7 @@
+target
+.git
+data
+simulator-data.json
+simulator-data.json.tmp
+*.md
+k8s

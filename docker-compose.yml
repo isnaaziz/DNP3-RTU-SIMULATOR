@@ -1,0 +1,16 @@
+services:
+  simulator-rtu-dnp3:
+    build: .
+    image: simulator-rtu-dnp3:latest
+    container_name: simulator-rtu-dnp3
+    restart: unless-stopped
+    ports:
+      - "8080:8080"
+      - "20000:20000"
+    environment:
+      TZ: Asia/Jakarta
+    volumes:
+      - simulator-data:/data
+
+volumes:
+  simulator-data:

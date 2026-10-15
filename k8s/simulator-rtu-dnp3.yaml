@@ -1,0 +1,89 @@
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: simulator-rtu-dnp3
+  namespace: simulator-dnp3
+  labels:
+    app: simulator-rtu-dnp3
+spec:
+  replicas: 1
+  serviceName: simulator-rtu-dnp3
+  selector:
+    matchLabels:
+      app: simulator-rtu-dnp3
+  template:
+    metadata:
+      labels:
+        app: simulator-rtu-dnp3
+    spec:
+      imagePullSecrets:
+        - name: harbor-secret
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 10001
+        fsGroup: 10001
+      containers:
+        - name: simulator-rtu-dnp3
+          image: 10.14.152.233:8080/scada/simulator-rtu-dnp3:latest
+          imagePullPolicy: Always
+          args: ["--data", "/data/simulator-data.json", "--http", "0.0.0.0:8080"]
+          ports:
+            - name: http
+              containerPort: 8080
+            - name: dnp3
+              containerPort: 20000
+          env:
+            - name: TZ
+              value: Asia/Jakarta
+          volumeMounts:
+            - name: data
+              mountPath: /data
+          readinessProbe:
+            httpGet:
+              path: /api/state
+              port: http
+            initialDelaySeconds: 3
+            periodSeconds: 10
+          livenessProbe:
+            httpGet:
+              path: /api/state
+              port: http
+            initialDelaySeconds: 10
+            periodSeconds: 20
+            failureThreshold: 3
+          resources:
+            requests:
+              cpu: 50m
+              memory: 32Mi
+            limits:
+              cpu: 500m
+              memory: 256Mi
+  volumeClaimTemplates:
+    - metadata:
+        name: data
+      spec:
+        accessModes: ["ReadWriteOnce"]
+        resources:
+          requests:
+            storage: 100Mi
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: simulator-rtu-dnp3
+  namespace: simulator-dnp3
+  labels:
+    app: simulator-rtu-dnp3
+spec:
+  type: NodePort
+  selector:
+    app: simulator-rtu-dnp3
+  ports:
+    - name: dnp3
+      port: 20000
+      targetPort: dnp3
+      nodePort: 30790
+    - name: http
+      port: 8080
+      targetPort: http
+      nodePort: 30791
