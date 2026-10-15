@@ -16,6 +16,8 @@ spec:
     metadata:
       labels:
         app: simulator-rtu-dnp3
+      annotations:
+        prometheus.io/scrape: "false"
     spec:
       imagePullSecrets:
         - name: harbor-secret
@@ -50,6 +52,8 @@ metadata:
   namespace: simulator-dnp3
   labels:
     app: simulator-rtu-dnp3
+  annotations:
+    prometheus.io/scrape: "false"
 spec:
   type: NodePort
   selector:
