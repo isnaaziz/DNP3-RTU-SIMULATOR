@@ -13,20 +13,32 @@ use state::{App, Shared};
 struct Args {
     data: PathBuf,
     http: String,
+    dnp3_port: Option<u16>,
 }
 
 fn parse_args() -> Result<Args, String> {
     let mut args = Args {
         data: PathBuf::from("simulator-data.json"),
         http: "0.0.0.0:8080".into(),
+        dnp3_port: std::env::var("DNP3_PORT").ok().and_then(|v| v.parse().ok()),
     };
     let mut iter = std::env::args().skip(1);
     while let Some(arg) = iter.next() {
         match arg.as_str() {
             "--data" => args.data = iter.next().ok_or("--data butuh path file")?.into(),
             "--http" => args.http = iter.next().ok_or("--http butuh host:port")?,
+            "--dnp3-port" => {
+                let value = iter.next().ok_or("--dnp3-port butuh nomor port")?;
+                args.dnp3_port = Some(
+                    value
+                        .parse()
+                        .map_err(|_| format!("port DNP3 tidak valid: {value}"))?,
+                );
+            }
             "-h" | "--help" => {
-                println!("simulator-rtu-dnp3 [--data simulator-data.json] [--http 0.0.0.0:8080]");
+                println!(
+                    "simulator-rtu-dnp3 [--data simulator-data.json] [--http 0.0.0.0:8080] [--dnp3-port 20000]"
+                );
                 std::process::exit(0);
             }
             other => return Err(format!("argumen tidak dikenal: {other}")),
@@ -43,10 +55,13 @@ async fn main() {
         eprintln!("{err}");
         std::process::exit(2);
     });
-    let config = Config::load(&args.data).unwrap_or_else(|err| {
+    let mut config = Config::load(&args.data).unwrap_or_else(|err| {
         eprintln!("gagal membaca penyimpanan: {err}");
         std::process::exit(1);
     });
+    if let Some(port) = args.dnp3_port {
+        config.settings.port = port;
+    }
 
     let shared = Shared::new(App {
         config,
@@ -55,6 +70,7 @@ async fn main() {
         connected: false,
         log: VecDeque::new(),
         error: None,
+        locked_port: args.dnp3_port,
     });
     shared.lock().persist();
 

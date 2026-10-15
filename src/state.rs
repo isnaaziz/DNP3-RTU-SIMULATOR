@@ -31,6 +31,7 @@ pub struct App {
     pub connected: bool,
     pub log: VecDeque<LogEntry>,
     pub error: Option<String>,
+    pub locked_port: Option<u16>,
 }
 
 #[derive(Clone)]

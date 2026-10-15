@@ -48,6 +48,7 @@ fn snapshot(app: &App) -> Value {
         "connected": app.connected,
         "running": app.runtime.is_some(),
         "error": app.error,
+        "locked_port": app.locked_port,
         "log": app.log,
     })
 }
@@ -228,10 +229,13 @@ async fn clear_log(State(shared): State<Shared>) -> Json<Value> {
     Json(snapshot(&app))
 }
 
-async fn settings(State(shared): State<Shared>, Json(input): Json<Settings>) -> ApiResult {
+async fn settings(State(shared): State<Shared>, Json(mut input): Json<Settings>) -> ApiResult {
     input.validate().map_err(ApiError)?;
     {
         let mut app = shared.lock();
+        if let Some(port) = app.locked_port {
+            input.port = port;
+        }
         app.config.settings = input;
         app.persist();
     }
@@ -269,9 +273,12 @@ async fn import_template() -> Response {
 }
 
 async fn import_config(State(shared): State<Shared>, Json(input): Json<Export>) -> ApiResult {
-    let config = Config::import(input).map_err(ApiError)?;
+    let mut config = Config::import(input).map_err(ApiError)?;
     {
         let mut app = shared.lock();
+        if let Some(port) = app.locked_port {
+            config.settings.port = port;
+        }
         let count = config.points.len();
         app.config = config;
         app.persist();

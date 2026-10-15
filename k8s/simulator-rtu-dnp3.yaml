@@ -26,12 +26,12 @@ spec:
         - name: simulator-rtu-dnp3
           image: 10.14.152.233:8080/scada/simulator-rtu-dnp3:latest
           imagePullPolicy: Always
-          args: ["--data", "/data/simulator-data.json", "--http", "0.0.0.0:8080"]
+          args: ["--data", "/data/simulator-data.json", "--http", "0.0.0.0:44015", "--dnp3-port", "40000"]
           ports:
             - name: http
-              containerPort: 8080
+              containerPort: 44015
             - name: dnp3
-              containerPort: 20000
+              containerPort: 40000
           env:
             - name: TZ
               value: Asia/Jakarta
@@ -80,10 +80,10 @@ spec:
     app: simulator-rtu-dnp3
   ports:
     - name: dnp3
-      port: 20000
+      port: 40000
       targetPort: dnp3
       nodePort: 30790
     - name: http
-      port: 8080
+      port: 44015
       targetPort: http
       nodePort: 30791

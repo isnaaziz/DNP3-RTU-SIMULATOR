@@ -27,10 +27,10 @@ COPY --from=builder /build/target/release/simulator-rtu-dnp3 /app/simulator-rtu-
 
 USER simulator
 VOLUME ["/data"]
-EXPOSE 8080 20000
+EXPOSE 44015 40000
 
 HEALTHCHECK --interval=15s --timeout=3s --start-period=10s --retries=3 \
-    CMD curl -fsS http://127.0.0.1:8080/api/state > /dev/null || exit 1
+    CMD curl -fsS http://127.0.0.1:44015/api/state > /dev/null || exit 1
 
 ENTRYPOINT ["/app/simulator-rtu-dnp3"]
-CMD ["--data", "/data/simulator-data.json", "--http", "0.0.0.0:8080"]
+CMD ["--data", "/data/simulator-data.json", "--http", "0.0.0.0:44015", "--dnp3-port", "40000"]

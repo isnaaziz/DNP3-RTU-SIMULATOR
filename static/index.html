@@ -147,6 +147,13 @@ input, select { font: inherit; color: var(--text); }
 .inline-input { width: 92px; margin-left: 4px; padding: 1px 6px; border: 1px solid var(--blue); border-radius: 4px; font-weight: 700; }
 .bay-edit { margin-left: auto; width: 32px; height: 32px; display: grid; place-items: center; border: 1px solid var(--line-strong); border-radius: 6px; background: #fff; color: var(--navy); }
 .bay-edit:hover { background: #f1f4f8; }
+.bay-edit + .bay-edit { margin-left: 6px; }
+.bay-edit.danger, .mini-icon.danger { color: var(--red); }
+.bay-edit.danger:hover, .mini-icon.danger:hover { background: #fdeceb; border-color: var(--red-line); }
+.row-actions { display: flex; gap: 6px; margin-top: 8px; }
+.mini-icon { width: 28px; height: 26px; display: grid; place-items: center; border: 1px solid var(--line-strong); border-radius: 5px; background: #fff; color: var(--navy); padding: 0; }
+.mini-icon:hover { background: #f1f4f8; }
+.mini-icon svg { width: 14px; height: 14px; }
 .bay-edit svg { width: 16px; height: 16px; }
 .seg { display: inline-flex; margin-left: 6px; border: 1px solid var(--line-strong); border-radius: 5px; overflow: hidden; vertical-align: middle; }
 .seg button { border: 0; background: #fff; padding: 2px 9px; font-size: 12.5px; font-weight: 600; color: #4b5d72; }
@@ -406,6 +413,7 @@ legend { font-size: 12.5px; color: var(--muted); padding: 0 4px; }
       <label>Event buffer per tipe<input name="event_buffer" type="number" min="1" max="65535" required></label>
       <label class="check" style="align-self:end"><input name="unsolicited" type="checkbox"> Unsolicited</label>
     </div>
+    <div class="meta hidden" id="port-note"></div>
     <div class="meta">Menyimpan akan me-restart outstation; koneksi master terputus sebentar.</div>
     <div class="actions">
       <button type="button" class="btn" data-close>Batal</button>
@@ -428,6 +436,7 @@ let editing = null;
 let editingValue = null;
 let inlineEdit = null;
 
+const TRASH = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 7h16M10 11v6M14 11v6M6 7l1 13h10l1-13M9 7V4h6v3"/></svg>`;
 const PENCIL = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 20h4L18.5 9.5a2.1 2.1 0 0 0-4-4L4 16v4zM13.5 6.5l4 4"/></svg>`;
 
 function editable(p, path, value, suffix = "") {
@@ -556,6 +565,28 @@ function toggleLocal(p) {
   setValue(lr, lr.kind === "double_bit" ? (local ? 2 : 1) : (local ? 1 : 0));
 }
 
+function rowActions(p) {
+  return `<div class="row-actions"><button class="mini-icon" data-edit="${p.id}" title="Ubah" aria-label="Ubah ${esc(p.name)}">${PENCIL}</button><button class="mini-icon danger" data-del="${p.id}" title="Hapus" aria-label="Hapus ${esc(p.name)}">${TRASH}</button></div>`;
+}
+
+function linkedPoints(p) {
+  const others = state.points.filter((q) => q.id !== p.id);
+  const usedElsewhere = (link) => others.some((q) => [q.feedback, q.lr].some((l) => l && l.kind === link.kind && l.index === link.index));
+  return [p.feedback, p.lr]
+    .filter((link) => link && !usedElsewhere(link))
+    .map((link) => find(link.kind, link.index))
+    .filter(Boolean);
+}
+
+async function deletePoint(p) {
+  if (!confirm(`Hapus ${KIND[p.kind]} ${p.index} "${p.name}"?`)) return;
+  const linked = linkedPoints(p);
+  const withLinked = linked.length && confirm(`Hapus juga point terkait?\n${linked.map((q) => `• ${KIND[q.kind]} ${q.index} "${q.name}"`).join("\n")}`);
+  await api("DELETE", `/api/points/${p.id}`);
+  if (withLinked) for (const q of linked) await api("DELETE", `/api/points/${q.id}`);
+  toast(withLinked ? `${linked.length + 1} point dihapus` : "Point dihapus");
+}
+
 function renderBreakers() {
   const outputs = state.points.filter((p) => p.kind === "binary_output");
   if (!outputs.length) return emptyState(ICON.breaker, "Belum ada circuit breaker.<br>Klik + lalu pilih tipe “Circuit Breaker / kontrol”.");
@@ -575,7 +606,7 @@ function renderBreakers() {
     const lampAttrs = (v, label) => remote ? `disabled title="${lockTitle}"` : `data-set="${status.id}" data-v="${v}" title="Operasi lokal: ${label}"`;
     return `
       <article class="bay">
-        <h3 class="bay-title"><span class="bay-icon ${online ? pos : "dead"}">${ICON.breaker}</span><button data-edit="${bo.id}">${esc(bo.name)}</button><button class="bay-edit" data-edit="${bo.id}" title="Ubah semua pengaturan" aria-label="Ubah ${esc(bo.name)}">${PENCIL}</button></h3>
+        <h3 class="bay-title"><span class="bay-icon ${online ? pos : "dead"}">${ICON.breaker}</span><button data-edit="${bo.id}">${esc(bo.name)}</button><button class="bay-edit" data-edit="${bo.id}" title="Ubah semua pengaturan" aria-label="Ubah ${esc(bo.name)}">${PENCIL}</button><button class="bay-edit danger" data-del="${bo.id}" title="Hapus" aria-label="Hapus ${esc(bo.name)}">${TRASH}</button></h3>
         <div class="bay-body">
           <div class="lamps ${pos === "inter" && online ? "inter" : ""}">
             <button class="lamp-btn" ${lampAttrs(openVal, "OPEN")}><span class="lamp green ${lit("green")}">${ICON.open}</span><span class="lamp-label green">Open</span></button>
@@ -635,7 +666,7 @@ function renderTelesignals() {
     }
     return `
       <div class="row">
-        <div class="name"><button data-edit="${p.id}">${esc(p.name)}</button><small>${KIND[p.kind]}</small></div>
+        <div class="name"><button data-edit="${p.id}">${esc(p.name)}</button><small>${KIND[p.kind]}</small>${rowActions(p)}</div>
         <div><div class="big ${cls}">${text}</div><div class="idx">Index:${editable(p, "index", p.index)}</div>${qualityText(p)}</div>
         <div class="btns">${controls}</div>
       </div>`;
@@ -660,7 +691,7 @@ function renderTelemetries() {
     const sub = p.kind === "analog_output" ? "AO · setpoint" : p.kind === "counter" ? "Counter" : "AI";
     return `
       <div class="row">
-        <div class="name"><button data-edit="${p.id}">${esc(p.name)}</button><small>${sub}</small></div>
+        <div class="name"><button data-edit="${p.id}">${esc(p.name)}</button><small>${sub}</small>${rowActions(p)}</div>
         <div>${value}<div class="idx">Index:${editable(p, "index", p.index)}</div>${qualityText(p)}</div>
         <div class="btns">
           <div class="pm-stack"><button class="pm" data-step="${p.id}" data-dir="1" title="Tambah ${step(p)}">+</button><button class="pm" data-step="${p.id}" data-dir="-1" title="Kurangi ${step(p)}">−</button></div>
@@ -742,6 +773,7 @@ document.addEventListener("click", (ev) => {
   const d = t.dataset;
   if (d.set) return setValue(byId(d.set), Number(d.v));
   if (d.edit) return openPoint(byId(d.edit));
+  if (d.del) return run(() => deletePoint(byId(d.del)));
   if (d.local) return toggleLocal(byId(d.local));
   if (d.auto) { const p = byId(d.auto); return savePoint(p, { sim: p.sim ? null : defaultSim(p) }); }
   if (d.step) {
@@ -884,10 +916,9 @@ pform.addEventListener("submit", (ev) => {
 
 $("#delete-point").addEventListener("click", () => {
   if (!editing) return;
-  if (!confirm(`Hapus ${KIND[editing.kind]} ${editing.index} "${editing.name}"?`)) return;
-  const id = editing.id;
+  const p = editing;
   pdialog.close();
-  run(() => api("DELETE", `/api/points/${id}`));
+  run(() => deletePoint(p));
 });
 
 const sform = $("#settings-form");
@@ -897,6 +928,11 @@ $("#settings-btn").addEventListener("click", () => {
     if (!el) continue;
     if (el.type === "checkbox") el.checked = v; else el.value = v;
   }
+  const port = sform.elements.port;
+  port.readOnly = state.locked_port != null;
+  port.title = port.readOnly ? `Port DNP3 dikunci ${state.locked_port} oleh --dnp3-port (mapping Docker/Kubernetes)` : "";
+  $("#port-note").classList.toggle("hidden", !port.readOnly);
+  $("#port-note").textContent = port.readOnly ? `Port DNP3 dikunci di ${state.locked_port} oleh --dnp3-port, sesuai port yang dibuka Docker/Kubernetes.` : "";
   $("#settings-dialog").showModal();
 });
 sform.addEventListener("submit", (ev) => {
