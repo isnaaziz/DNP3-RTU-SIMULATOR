@@ -1,5 +1,9 @@
+use std::convert::Infallible;
+use std::time::Duration;
+
 use axum::extract::{Path, State};
 use axum::http::{StatusCode, header};
+use axum::response::sse::{Event, KeepAlive, Sse};
 use axum::response::{Html, IntoResponse, Response};
 use axum::routing::{delete, get, post, put};
 use axum::{Json, Router};
@@ -27,6 +31,7 @@ pub fn router(shared: Shared) -> Router {
     Router::new()
         .route("/", get(|| async { Html(INDEX) }))
         .route("/api/state", get(state))
+        .route("/api/events", get(events))
         .route("/api/settings", post(settings))
         .route("/api/points", post(create))
         .route("/api/points/:id", put(update).delete(remove))
@@ -223,9 +228,37 @@ async fn set_flags(
     Ok(Json(snapshot(&app)))
 }
 
+async fn events(State(shared): State<Shared>) -> Response {
+    let changes = shared.lock().changes.subscribe();
+    let stream = futures_util::stream::unfold(
+        (shared, changes, true),
+        |(shared, mut changes, first)| async move {
+            if !first {
+                changes.changed().await.ok()?;
+                tokio::time::sleep(Duration::from_millis(40)).await;
+                changes.borrow_and_update();
+            }
+            let data = snapshot(&shared.lock()).to_string();
+            Some((
+                Ok::<_, Infallible>(Event::default().data(data)),
+                (shared, changes, false),
+            ))
+        },
+    );
+    (
+        [
+            (header::CACHE_CONTROL, "no-cache"),
+            (header::HeaderName::from_static("x-accel-buffering"), "no"),
+        ],
+        Sse::new(stream).keep_alive(KeepAlive::default()),
+    )
+        .into_response()
+}
+
 async fn clear_log(State(shared): State<Shared>) -> Json<Value> {
     let mut app = shared.lock();
     app.log.clear();
+    app.touch();
     Json(snapshot(&app))
 }
 

@@ -492,17 +492,27 @@ function toast(msg, error = false) {
   t._h = setTimeout(() => (t.className = ""), 3200);
 }
 
+let inflight = 0;
+let pointerDown = false;
+let renderPending = false;
+const rendered = {};
+
 async function api(method, url, body) {
-  const res = await fetch(url, {
-    method,
-    headers: { "Content-Type": "application/json" },
-    body: body === undefined ? undefined : JSON.stringify(body),
-  });
-  const data = await res.json().catch(() => ({}));
-  if (!res.ok) throw new Error(data.error || res.statusText);
-  state = data;
-  render();
-  return data;
+  inflight++;
+  try {
+    const res = await fetch(url, {
+      method,
+      headers: { "Content-Type": "application/json" },
+      body: body === undefined ? undefined : JSON.stringify(body),
+    });
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) throw new Error(data.error || res.statusText);
+    state = data;
+    render();
+    return data;
+  } finally {
+    inflight--;
+  }
 }
 const run = (fn) => fn().catch((e) => toast(e.message, true));
 
@@ -510,8 +520,17 @@ const pointData = (p, patch = {}) => {
   const { id, ...data } = p;
   return { ...data, ...patch };
 };
-const setValue = (p, value) => run(() => api("POST", `/api/points/${p.id}/value`, { value }));
-const savePoint = (p, patch) => run(() => api("PUT", `/api/points/${p.id}`, pointData(p, patch)));
+const setValue = (p, value) => {
+  p.value = value;
+  render();
+  run(() => api("POST", `/api/points/${p.id}/value`, { value }));
+};
+const savePoint = (p, patch) => {
+  const body = pointData(p, patch);
+  Object.assign(p, patch);
+  render();
+  run(() => api("PUT", `/api/points/${p.id}`, body));
+};
 const byId = (id) => state.points.find((p) => p.id === Number(id));
 const find = (kind, index) => state.points.find((p) => p.kind === kind && p.index === index);
 
@@ -713,37 +732,55 @@ function renderHeader() {
 }
 
 function renderLog() {
-  $("#log").innerHTML = state.log.length ? state.log.map((e) => {
+  paint("#log", state.log.length ? state.log.map((e) => {
     const d = new Date(e.time_ms);
     const t = d.toLocaleTimeString("id-ID", { hour12: false }) + "." + String(d.getMilliseconds()).padStart(3, "0");
     return `<div class="log-row ${e.ok ? "" : "fail"}"><time>${t}</time><span>${esc(e.text)}</span></div>`;
-  }).join("") : `<div class="empty">Belum ada kejadian.</div>`;
+  }).join("") : `<div class="empty">Belum ada kejadian.</div>`);
+}
+
+function paint(sel, html) {
+  if (rendered[sel] === html) return;
+  const el = $(sel);
+  const active = document.activeElement;
+  if (active && active.tagName === "INPUT" && el.contains(active)) return;
+  el.innerHTML = html;
+  rendered[sel] = html;
 }
 
 function render() {
   if (!state) return;
+  if (pointerDown) { renderPending = true; return; }
   renderHeader();
-  const active = document.activeElement;
-  for (const [sel, fn] of [["#cb", renderBreakers], ["#ts", renderTelesignals], ["#tm", renderTelemetries]]) {
-    const el = $(sel);
-    if (!(active && active.tagName === "INPUT" && el.contains(active))) el.innerHTML = fn();
-  }
+  paint("#cb", renderBreakers());
+  paint("#ts", renderTelesignals());
+  paint("#tm", renderTelemetries());
   renderLog();
   const input = document.querySelector("[data-value-input], [data-inline-input]");
   if (input && document.activeElement !== input) { input.focus(); input.select(); }
 }
 
-async function poll() {
-  try {
-    const res = await fetch("/api/state");
-    state = await res.json();
+function connect() {
+  const events = new EventSource("/api/events");
+  events.onmessage = (ev) => {
+    if (inflight > 0) return;
+    state = JSON.parse(ev.data);
     render();
-  } catch {
+  };
+  events.onerror = () => {
     const conn = $("#conn");
     conn.className = "conn off";
-    conn.querySelector("span").textContent = "UI terputus dari simulator";
-  }
+    conn.querySelector("span").textContent = "Menyambung ulang ke simulator…";
+  };
 }
+
+const release = () => setTimeout(() => {
+  pointerDown = false;
+  if (renderPending) { renderPending = false; render(); }
+}, 0);
+document.addEventListener("pointerdown", () => { pointerDown = true; }, true);
+document.addEventListener("pointerup", release, true);
+document.addEventListener("pointercancel", release, true);
 
 function commitInline(input) {
   const p = byId(input.dataset.inlineInput);
@@ -971,8 +1008,7 @@ $("#import-file").addEventListener("change", async (ev) => {
   run(async () => { await api("POST", "/api/config/import", data); toast(`${count} point diimport`); });
 });
 
-poll();
-setInterval(poll, 500);
+connect();
 </script>
 </body>
 </html>

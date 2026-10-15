@@ -6,6 +6,7 @@ use std::time::{SystemTime, UNIX_EPOCH};
 use dnp3::outstation::OutstationHandle;
 use dnp3::tcp::ServerHandle;
 use serde::Serialize;
+use tokio::sync::watch;
 
 use crate::model::{Config, Kind, Point};
 use crate::outstation::write_point;
@@ -32,6 +33,7 @@ pub struct App {
     pub log: VecDeque<LogEntry>,
     pub error: Option<String>,
     pub locked_port: Option<u16>,
+    pub changes: watch::Sender<u64>,
 }
 
 #[derive(Clone)]
@@ -57,6 +59,10 @@ pub fn now_ms() -> u64 {
 }
 
 impl App {
+    pub fn touch(&self) {
+        self.changes.send_modify(|version| *version += 1);
+    }
+
     pub fn log(&mut self, ok: bool, text: impl Into<String>) {
         let text = text.into();
         tracing::info!("{text}");
@@ -66,15 +72,21 @@ impl App {
             text,
         });
         self.log.truncate(LOG_LIMIT);
+        self.touch();
     }
 
     pub fn persist(&mut self) {
         if let Err(err) = self.config.save(&self.path) {
             self.error = Some(format!("gagal menyimpan konfigurasi: {err}"));
         }
+        self.touch();
     }
 
     pub fn write(&self, points: &[Point]) {
+        if points.is_empty() {
+            return;
+        }
+        self.touch();
         if let Some(rt) = &self.runtime {
             rt.outstation.transaction(|db| {
                 for point in points {

@@ -71,6 +71,7 @@ async fn main() {
         log: VecDeque::new(),
         error: None,
         locked_port: args.dnp3_port,
+        changes: tokio::sync::watch::channel(0).0,
     });
     shared.lock().persist();
 

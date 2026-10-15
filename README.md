@@ -37,7 +37,7 @@ File `--data` hanya tempat simulator menyimpan keadaannya; tidak perlu diedit ma
 
 ## Tampilan
 
-UI terdiri dari tiga kolom yang diperbarui setiap 0,5 detik:
+UI terdiri dari tiga kolom yang diperbarui secara realtime lewat Server-Sent Events (`/api/events`): server hanya mengirim data saat ada perubahan (kontrol dari master, feedback, simulasi, quality, koneksi master, log). Aksi dari UI tetap lewat REST.
 
 - **Circuit Breakers**: satu kartu per point kontrol (BO). Lampu hijau = OPEN, merah = CLOSE, keduanya berkedip saat intermediate. Tombol Open/Close/Inter 00/Bad 11 mengubah status lapangan secara langsung (tanpa lewat master). Saklar L/R mengubah point status L/R (index-nya tampil di kartu) sehingga master menerima event perubahan; saat Local, kontrol dari master ditolak. Kontrol tanpa point L/R memakai mode L/R internal yang tidak dikirim ke master.
 - **Telesignals**: BI dan DBI yang tidak dipakai sebagai status CB. Tombol `A` menyalakan/mematikan simulasi otomatis.
